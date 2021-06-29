@@ -23,7 +23,8 @@ class SocketHandler:
         def event_connection_request(request_data):
             pinger = request_data["pinger"]
             password = request_data["password"]
-            self.on_connection_request(pinger, password)
+            status = self.on_connection_request(pinger, password)
+            return status
 
         @self.io.on("remoteConnected")
         def event_remote_connected(remote_username):
@@ -63,7 +64,7 @@ class SocketHandler:
         if approved:
             self.update_remote_connected(pinger)
 
-        self.io.emit("connectionRequestRespond", data={"approved": approved, "message": message})
+        return {"approved": approved, "message": message}
 
     def update_remote_connected(self, remote_username):
         """
