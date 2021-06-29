@@ -1,0 +1,17 @@
+bidict==0.21.2
+certifi==2021.5.30
+chardet==4.0.0
+comtypes==1.1.10
+idna==2.10
+mutagen==1.45.1
+psutil==5.8.0
+pygame==2.0.1
+pynput==1.7.3
+python-engineio==4.2.0
+python-socketio==5.3.0
+pywin32==228
+pywinauto==0.6.8
+requests==2.25.1
+six==1.16.0
+urllib3==1.26.6
+websocket-client==1.1.0
