@@ -34,7 +34,7 @@ def get_application_path():
     if running_on_exe():
         return sys.executable
     else:
-        return os.path.sep.join(__file__.split(os.path.sep)[:-1])
+        return os.path.sep.join(__file__.split(os.path.sep))
 
 
 def get_global_path():
@@ -45,10 +45,10 @@ def get_global_path():
     if not running_on_exe():  # if not
         return os.path.dirname(application_path)
     else:
-        return os.path.sep.join(os.path.dirname(application_path).split(os.path.sep)[:-1])
+        return os.path.sep.join(os.path.dirname(application_path).split(os.path.sep))
 
 
-# .../FrankThePrank/[FrankThePrank.exe \ FrankThePrank.py]
+# .../FrankThePrank/[FrankThePrank.exe / FrankThePrank.py]
 application_path = get_application_path()
 # .../FrankThePrank
 global_path = get_global_path()
