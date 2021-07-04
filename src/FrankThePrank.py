@@ -1,5 +1,5 @@
 from Handlers import SingleInstanceHandler, RulesCreationHandler, SocketHandler
-from Handlers import LoggingHandler, ConfigHandler, SetupHandler, PathsHandler
+from Handlers import LoggingHandler, ConfigHandler, SetupHandler
 import threading
 import Features
 import tempfile
