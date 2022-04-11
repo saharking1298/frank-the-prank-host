@@ -10,31 +10,33 @@ class SocketHandler:
         """
         self.respond_function = respond_function
         # Development only. Production URL: "https://api.saharscript.dev/projects/ftp-server"
-        self.socket_url = "http://localhost:3000"
+        # self.socket_url = "https://saharscript.dev/"
+        self.socket_url = "https://saharscript.dev/"
+        # self.socket_url = "http://localhost:3000/"
         self.event_delay = 0.01
         self.event_storage = {}
         self.remote_connected = ""
         self.io = socketio.Client()
         self.callbacks()
-        self.io.connect(self.socket_url)
+        self.io.connect(self.socket_url, namespaces=["/frankThePrank"])
 
     def callbacks(self):
-        @self.io.on("connectionRequest")
+        @self.io.on("connectionRequest", namespace='/frankThePrank')
         def event_connection_request(request_data):
             pinger = request_data["pinger"]
             password = request_data["password"]
             status = self.on_connection_request(pinger, password)
             return status
 
-        @self.io.on("remoteConnected")
+        @self.io.on("remoteConnected", namespace='/frankThePrank')
         def event_remote_connected(remote_username):
             self.update_remote_connected(remote_username)
 
-        @self.io.on("remoteDisconnected")
+        @self.io.on("remoteDisconnected", namespace='/frankThePrank')
         def event_remote_disconnected():
             pass
 
-        @self.io.on("directTalkMessage")
+        @self.io.on("directTalkMessage", namespace='/frankThePrank')
         def event_direct_talk(data):
             self.handle_direct_talk(data)
 
@@ -58,6 +60,8 @@ class SocketHandler:
                 approved = False
                 message = "Remote is not in whitelist. Connection failed."
         if approved and local_password != "" and local_password != security_password:
+            print(local_password)
+            print(security_password)
             approved = False
             message = "Password doesn't match. Connection failed."
 
@@ -117,7 +121,7 @@ class SocketHandler:
             data = args[0]
         elif len(args) > 1:
             data = args
-        self.io.emit(event, data=data, callback=on_callback)
+        self.io.emit(event, data=data, callback=on_callback, namespace='/frankThePrank')
         return self.get_callback(callback)
 
     def login(self):

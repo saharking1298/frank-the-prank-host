@@ -696,11 +696,19 @@ class Features:
         :param keys: The list of keys to press [text]
         :return: None
         """
+        replace_keys = {"windows": "cmd", "win": "cmd", "capslock": "caps_lock", "caps": "caps_lock",
+                "escape": "esc", "del": "delete", "bs": "backspace", "ins": "insert"}
+        for i in range(len(keys)):
+            if keys[i] in replace_keys:
+                keys[i] = replace_keys[keys[i]]
+        if "cmd" in keys:
+            keys.remove("cmd")
+            keys.insert(0, "cmd")
         try:
             self.input_controller.keyboard_press(*keys)
         except:
             message = "Some of the keys entered may not been valid."
-            self.serverScript.update_communication_channel("Error", message)
+            # self.serverScript.update_communication_channel("Error", message)
 
     def type(self, text):
         """
@@ -915,14 +923,14 @@ class Features:
         :param display_option: The display option [choice] [Main, Second, Extend, Duplicate]
         :return: None
         """
-        display_options = {"Main": "/internal", "Second": "/clone", "Duplicate": "/clone", "Extend": "/extend"}
+        display_options = {"Main": "/internal", "Second": "/external", "Duplicate": "/clone", "Extend": "/extend"}
         displayswitch = PathsHandler.join(PathsHandler.extensions_dir, "DisplaySwitch.exe")
         if display_option in display_options.keys():
             self.cmd_handler.cmd_launch_executable(displayswitch, display_options[display_option])
 
     def say(self, text_to_speech):
         """
-        This feature is causing the host computer to say a message out lod - in a real woman voice.
+        This feature is causing the host computer to say a message out loud - in a real woman voice.
         Category: Hacks & Tricks
         Echo: No
         :param text_to_speech: The text to say [string]
@@ -946,7 +954,7 @@ class Features:
         elif crazy_state == "off":
             self.input_controller.disable_crazy_mode()
 
-    def setvol(self, target, volume):
+    def setvol(self, volume, target="System volume"):
         """
         This feature sets the system volume or Ftp Sound Player volume to a specific volume, from 0 to 100.
         Category: Power Control
@@ -993,7 +1001,7 @@ class Features:
         Echo: No
         :return: None
         """
-        self.serverScript.stop_mainloop()
+        self.serverScript.disconnect()
         sys.exit()
 
     def reset(self):
@@ -1108,3 +1116,12 @@ class Features:
         """
         if program_path != "":
             os.startfile(program_path, "open")
+
+    def back(self):
+        """
+        This feature launches alt + f4 to exit all kinds of focused applications
+        Category: Apps & Multimedia
+        Echo: No
+        :return: None
+        """
+        self.keys(["alt", "f4"])
