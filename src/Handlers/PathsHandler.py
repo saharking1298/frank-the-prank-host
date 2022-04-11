@@ -2,6 +2,8 @@ import tempfile
 import os.path
 import sys
 
+onefile = False
+
 
 def join(path, *paths):
     """
@@ -32,7 +34,10 @@ def get_application_path():
     :return: Frank The Prank working file
     """
     if running_on_exe():
-        return sys.executable
+        if onefile:
+            return sys.executable
+        else:
+            return os.path.sep.join(sys.executable.split(os.path.sep)[:-1])
     else:
         return os.path.sep.join(__file__.split(os.path.sep)[:-1])
 
