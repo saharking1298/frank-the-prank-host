@@ -67,6 +67,10 @@ media_dir = join(resources_dir, "Media")
 music_dir = join(resources_dir, "Music")
 # .../FrankThePrank/FtpResources/Temp
 temp_dir = join(resources_dir, "Temp")
+# %LOCALAPPDATA%/FrankThePrank
+data_dir = join(os.getenv('LOCALAPPDATA'), "FrankThePrank")
+# %LOCALAPPDATA%/FrankThePrank/FtpSave.json
+data_file = join(data_dir, "FtpSave.json")
 # .../FrankThePrank/FtpResources/FtpConfig.json
 config_path = join(resources_dir, "FtpConfig.json")
 # .../%Temp%/FtpAdminSDK.json

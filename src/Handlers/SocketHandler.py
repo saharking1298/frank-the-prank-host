@@ -1,4 +1,6 @@
-from Handlers import ConfigHandler, LoggingHandler
+import os
+
+from Handlers import ConfigHandler, LoggingHandler, FileManagerHandler
 import socketio
 import time
 
@@ -9,36 +11,45 @@ class SocketHandler:
         This is the init function of Ftp socket handler.
         """
         self.respond_function = respond_function
-        # Development only. Production URL: "https://api.saharscript.dev/projects/ftp-server"
+        self.file_manager = FileManagerHandler.FileManager()
+        # Development only. Production URL: "https://saharscript.dev/"
+        self.socket_url = "http://localhost:3000/"
         # self.socket_url = "https://saharscript.dev/"
-        self.socket_url = "https://saharscript.dev/"
-        # self.socket_url = "http://localhost:3000/"
+        self.connect_error = None
         self.event_delay = 0.01
         self.event_storage = {}
         self.remote_connected = ""
         self.io = socketio.Client()
         self.callbacks()
-        self.io.connect(self.socket_url, namespaces=["/frankThePrank"])
 
     def callbacks(self):
-        @self.io.on("connectionRequest", namespace='/frankThePrank')
-        def event_connection_request(request_data):
-            pinger = request_data["pinger"]
-            password = request_data["password"]
+        @self.io.on("connect_error", namespace='/frankThePrank')
+        def connect_error(data):
+            self.connect_error = data["message"]
+
+        @self.io.on("host:connectionRequest", namespace='/frankThePrank')
+        def event_connection_request(pinger, password):
             status = self.on_connection_request(pinger, password)
             return status
 
-        @self.io.on("remoteConnected", namespace='/frankThePrank')
+        @self.io.on("host:remoteConnected", namespace='/frankThePrank')
         def event_remote_connected(remote_username):
             self.update_remote_connected(remote_username)
 
-        @self.io.on("remoteDisconnected", namespace='/frankThePrank')
-        def event_remote_disconnected():
-            pass
+        @self.io.on("partnerStatus", namespace='/frankThePrank')
+        def event_partner_status(status):
+            if status == "terminated":
+                self.remote_connected = ""
+                print("Connection terminated.")
 
         @self.io.on("directTalkMessage", namespace='/frankThePrank')
         def event_direct_talk(data):
-            self.handle_direct_talk(data)
+            name = data["name"]
+            if "event" in data:
+                event = data["event"]
+            else:
+                event = None
+            return self.handle_direct_talk(name, event)
 
     def on_connection_request(self, pinger, security_password):
         """
@@ -60,15 +71,13 @@ class SocketHandler:
                 approved = False
                 message = "Remote is not in whitelist. Connection failed."
         if approved and local_password != "" and local_password != security_password:
-            print(local_password)
-            print(security_password)
             approved = False
             message = "Password doesn't match. Connection failed."
 
         if approved:
             self.update_remote_connected(pinger)
 
-        return {"approved": approved, "message": message}
+        return {"success": approved, "error": message}
 
     def update_remote_connected(self, remote_username):
         """
@@ -130,11 +139,19 @@ class SocketHandler:
         then return the request status.
         :return: Request status
         """
-        host_id = ConfigHandler.get_host_id()
-        auth_token = ConfigHandler.get_auth_token()
-        data = ("host", {"hostId": host_id, "authToken": auth_token})
-        login_status = self.listen("login", data)
-        return login_status
+        auth = {
+            "actionType": "login",
+            "clientType": "host",
+            "username": ConfigHandler.get_host_id(),
+            "password": ConfigHandler.get_auth_token()
+        }
+        try:
+            self.io.connect(self.socket_url, namespaces=["/frankThePrank"], auth=auth)
+            return {"approved": True}
+        except:
+            while self.connect_error is None:
+                time.sleep(self.event_delay)
+            return {"approved": False, "message": self.connect_error}
 
     def disconnect(self):
         """
@@ -143,14 +160,15 @@ class SocketHandler:
         """
         self.io.disconnect()
 
-    def handle_direct_talk(self, data):
-        print("Received directTalk:", data)
-        namespace = data["namespace"]
-        event = data["eventName"]
-        args = data["eventArgs"]
-        if namespace == "feature":
+    def handle_direct_talk(self, name, event):
+        print("Received directTalk:", name)
+        if name == "features.activate":
+            feature = event["featureName"]
+            args = event["featureArgs"]
             if args is None:
                 args = ()
             elif type(args) not in (tuple, list):
                 args = (args,)
-            self.respond_function(event, *args)
+            self.respond_function(feature, *args)
+        elif name.startswith("files."):
+            return self.file_manager.handle(name, event, self.remote_connected)
