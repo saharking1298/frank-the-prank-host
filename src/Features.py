@@ -428,7 +428,7 @@ class CmdCommandHandler:
         """
         pass
 
-    def cmd_command(self, command, location=None):
+    def execute(self, command, location=None):
         """
         This function launches a single cmd command, with no error or output handling.
         :param command: The cmd command to call
@@ -444,25 +444,7 @@ class CmdCommandHandler:
         except:
             pass
 
-    def cmd_command_successful(self, command, location=None):
-        """
-        This function launches a single cmd command, and checks if the command launched successfully.
-        :param command: The cmd command to call
-        :type command: str
-        :param location: The starting location path (where to cd)
-        :type location: str
-        :return: False if command got any errors, True if not.
-        :rtype: bool
-        """
-        try:
-            if location is not None:
-                command = 'cd /D "{1}" & "{0}"'.format(command, location)
-            subprocess.check_call(command, shell=True)
-            return True
-        except:
-            return False
-
-    def cmd_command_check_output(self, command, location=None):
+    def check_output(self, command, location=None):
         """
         This function launches a single cmd command, and returns the output from the command line
         :param command: The cmd command to call
@@ -480,16 +462,7 @@ class CmdCommandHandler:
             output = e.output.decode("utf-8")
             return output
 
-    def cmd_open_file(self, file):
-        """
-        This function opens a file by its path, using the command line.
-        :param file: The path of the wanted file
-        :type file: str
-        :return: None
-        """
-        os.startfile(file)
-
-    def cmd_launch_executable(self, file, arguments=""):
+    def launch_executable(self, file, arguments=""):
         """
         This function launches an exe using the command line. arguments are also an option.
         :param file: The path of the exe
@@ -499,7 +472,7 @@ class CmdCommandHandler:
         :return: None
         """
         command = 'cd /D "{}" & start {} {}'.format(*os.path.split(file), arguments)
-        self.cmd_command(command)
+        self.execute(command)
 
 
 class NirCmdHandler:
@@ -514,7 +487,7 @@ class NirCmdHandler:
         :type command: str
         :return: None
         """
-        self.commandHandler.cmd_launch_executable(self.nircmd_path, command)
+        self.commandHandler.launch_executable(self.nircmd_path, command)
 
 
 class AdvancedControlHandler:
@@ -826,7 +799,7 @@ class Features:
         :param command: The cmd command [string]
         :return: None
         """
-        threading.Thread(target=self.cmd_handler.cmd_command, args=(command,), daemon=True).start()
+        threading.Thread(target=self.cmd_handler.execute, args=(command,), daemon=True).start()
 
     def cmdget(self, command):
         """
@@ -837,7 +810,7 @@ class Features:
         :param command: The cmd command [string]
         :return: None
         """
-        output = self.cmd_handler.cmd_command_check_output(command)
+        output = self.cmd_handler.check_output(command)
         self.serverScript.send_echo(output)
 
     def nircmd(self, command):
@@ -926,7 +899,7 @@ class Features:
         display_options = {"Main": "/internal", "Second": "/external", "Duplicate": "/clone", "Extend": "/extend"}
         displayswitch = PathsHandler.join(PathsHandler.extensions_dir, "DisplaySwitch.exe")
         if display_option in display_options.keys():
-            self.cmd_handler.cmd_launch_executable(displayswitch, display_options[display_option])
+            self.cmd_handler.launch_executable(displayswitch, display_options[display_option])
 
     def say(self, text_to_speech):
         """
@@ -1014,7 +987,7 @@ class Features:
         """
         if PathsHandler.running_on_exe():
             SingleInstanceHandler.enable_reset()
-            threading.Thread(target=self.cmd_handler.cmd_launch_executable,
+            threading.Thread(target=self.cmd_handler.launch_executable,
                              args=(PathsHandler.application_path,),
                              daemon=False).start()
             self.exit()
