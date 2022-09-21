@@ -105,6 +105,23 @@ class FileManager:
                 result.append({"path": item, "type": "unknown"})
         return result
 
+    def get_file_details(self, file):
+        if os.path.isfile(file):
+            stats = os.stat(file)
+            return {
+                "success": True,
+                "details": {"size": stats.st_size, "lastModified": stats.st_mtime}
+            }
+        else:
+            return {"success": False}
+
+    def action_launch(self, file):
+        try:
+            os.startfile(file)
+            return {"success": True}
+        except:
+            return {"success": False}
+
     def handle(self, command, event, partner):
         result = None
         if command == "files.listDir":
@@ -113,5 +130,9 @@ class FileManager:
             result = self.toggle_favorite(event, partner)
         elif command == "files.getFavorites":
             result = self.get_favorites(partner)
+        elif command == "files.getDetails":
+            result = self.get_file_details(event)
+        elif command == "files.launch":
+            result = self.action_launch(event)
         return result
 
