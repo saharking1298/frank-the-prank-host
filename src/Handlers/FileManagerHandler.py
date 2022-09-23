@@ -49,7 +49,9 @@ class Favorites:
 
 class FileManager:
     def __init__(self):
+        self.partner = ""
         self.cmd = CmdCommandHandler()
+        self.size_limit = 1000 ** 2  # 1MB
 
     def get_drives(self):
         # Getting all drive letters on the host machine
@@ -95,7 +97,7 @@ class FileManager:
         for item in items:
             print(item)
             if os.path.isfile(item):
-                result.append({"path": item, "type": ".".join(item.split(".")[:-1])})
+                result.append({"path": item, "type": "." + item.split("\\")[-1].split(".")[-1]})
             elif os.path.isdir(item):
                 if len(item) > 3:
                     result.append({"path": item, "type": "folder"})
@@ -115,12 +117,82 @@ class FileManager:
         else:
             return {"success": False}
 
-    def action_launch(self, file):
+    def action_launch(self, event):
         try:
-            os.startfile(file)
+            os.startfile(event["file"])
             return {"success": True}
         except:
             return {"success": False}
+
+    def action_fetch(self, file):
+        if os.path.isfile(file):
+            file_size = os.stat(file).st_size
+            if file_size > 1000 ** 2:
+                return {"success": False, "error": "File is too large"}
+            else:
+                try:
+                    content = open(file, "rb").read()
+                    return {"success": True, "file": content}
+                except (PermissionError, IOError, FileNotFoundError):
+                    return {"success": False, "error": "Couldn't read file"}
+        return {"success": False, "error": "File does not exist"}
+
+    def action_edit(self, event):
+        if type(event) == dict and "path" in event and "content" in event:
+            try:
+                with open(event["path"], "w+", encoding="utf-8") as file:
+                    file.read()  # Check if file is plain text
+                    file.write(event["content"])
+            except (UnicodeEncodeError, IOError, PermissionError, FileNotFoundError):
+                return {"success": False, "error": "Couldn't read file"}
+        return {"success": False, "error": "Request incomplete"}
+
+    def action_delete(self, event):
+        if type(event) == dict and "file" in event:
+            if os.path.isfile(event["file"]):
+                return {"success": False, "error": "Can't delete file"}
+            else:
+                return {"success": False, "error": "File does not exist"}
+        else:
+            return {"success": False, "error": "Request incomplete"}
+
+    def action_rename(self, event, partner):
+        print(event)
+        if type(event) == dict and "src" in event and "dst" in event:
+            if "\\" in event["dst"]:
+                return {"success": False, "error": "Can't rename file"}
+            src = event["src"]
+            dst = os.path.join(os.path.dirname(src), event["dst"])
+            if os.path.isfile(src):
+                try:
+                    os.rename(src, dst)
+                    if Favorites.exist(src, partner):
+                        Favorites.remove(src, partner)
+                        Favorites.add(dst, partner)
+                    return {"success": True}
+                except (IOError, FileNotFoundError, PermissionError) as e:
+                    print(e)
+                    return {"success": False, "error": "Can't rename file"}
+            else:
+                return {"success": False, "error": "File does not exist"}
+        else:
+            return {"success": False, "error": "Request incomplete"}
+
+    def action_move(self, event):
+        if type(event) == dict and "src" in event and "dst" in event:
+            src = event["src"]
+            dst = event["dst"]
+            if os.path.isfile(src) and os.path.isdir(dst):
+                try:
+                    raise Exception  # Disabling file moving feature
+                    os.rename(src, dst)
+                    return {"success": True}
+                except (IOError, FileNotFoundError, PermissionError):
+                    return {"success": False, "error": "Can't rename file"}
+            else:
+                return {"success": False, "error": "Can't rename file"}
+        else:
+            return {"success": False, "error": "Request incomplete"}
 
     def handle(self, command, event, partner):
         result = None
@@ -134,5 +206,15 @@ class FileManager:
             result = self.get_file_details(event)
         elif command == "files.launch":
             result = self.action_launch(event)
+        elif command == "files.fetch":
+            result = self.action_fetch(event)
+        elif command == "files.edit":
+            result = self.action_edit(event)
+        elif command == "files.delete":
+            result = self.action_delete(event)
+        elif command == "files.rename":
+            result = self.action_rename(event, partner)
+        elif command == "files.move":
+            result = self.action_move(event)
         return result
 
