@@ -1,6 +1,5 @@
-import os
-
 from Handlers import ConfigHandler, LoggingHandler, FileManagerHandler
+from Features import DynamicFetchers
 import socketio
 import time
 
@@ -11,6 +10,7 @@ class SocketHandler:
         This is the init function of Ftp socket handler.
         """
         self.respond_function = respond_function
+        self.fetchers = DynamicFetchers()
         self.file_manager = FileManagerHandler.FileManager()
         # Development only. Production URL: "https://saharscript.dev/"
         self.socket_url = "http://localhost:3000/"
@@ -44,12 +44,11 @@ class SocketHandler:
 
         @self.io.on("directTalkMessage", namespace='/frankThePrank')
         def event_direct_talk(data):
-            name = data["name"]
             if "event" in data:
                 event = data["event"]
             else:
                 event = None
-            return self.handle_direct_talk(name, event)
+            return self.handle_direct_talk(data["name"], event)
 
     def on_connection_request(self, pinger, security_password):
         """
@@ -69,7 +68,7 @@ class SocketHandler:
         if len(whitelist) > 0:
             if pinger not in whitelist:
                 approved = False
-                message = "Remote is not in whitelist. Connection failed."
+                message = "Remote is not whitelisted. Connection failed."
         if approved and local_password != "" and local_password != security_password:
             approved = False
             message = "Password doesn't match. Connection failed."
@@ -146,7 +145,11 @@ class SocketHandler:
             "password": ConfigHandler.get_auth_token()
         }
         try:
-            self.io.connect(self.socket_url, namespaces=["/frankThePrank"], auth=auth)
+            self.io.connect(
+                self.socket_url,
+                namespaces=["/frankThePrank"],
+                auth=auth
+            )
             return {"approved": True}
         except:
             while self.connect_error is None:
@@ -170,5 +173,8 @@ class SocketHandler:
             elif type(args) not in (tuple, list):
                 args = (args,)
             self.respond_function(feature, *args)
+
+        elif name == "arguments.dynamic.fetch":
+            return self.fetchers.get(event)
         elif name.startswith("files."):
             return self.file_manager.handle(name, event, self.remote_connected)

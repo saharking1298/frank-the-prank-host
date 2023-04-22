@@ -13,115 +13,39 @@ import time
 import sys
 import os
 import re
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"  # Hiding pygame welcome message
 from pygame import mixer
 
 
-class DynamicArgumentsHandler:
-    def __init__(self, serverScript):
-        """
-        This class is the Ftp dynamic arguments handler.
-        Dynamic arguments, are feature arguments that the remote is sending before the actual feature request is sent.
-        Example: launch feature has two dynamic arguments - the name to search, and the result to choose.
-        The name is sent to the host, the host searches and gives a list of options the remote user can choose,
-        and the feature request is being sent. That's a dynamic argument.
-        :param serverScript: ServerScript class to handle database events.
-        """
-        self.serverScript = serverScript
-        self.session_variables = []
+class DynamicFetchers:
+    def __init__(self):
+        self.fetchers = {
+            "media.sounds.all": self.load_music_library,
+            "windows.open.all": self.get_open_windows
+        }
 
-    def clear_session_variables(self):
-        """
-        This function clears all the variables of the current session.
-        It is used after a feature with dynamic arguments has been executed.
-        :return: None
-        """
-        self.session_variables = []
+    def get(self, fetcher: str, *args):
+        if fetcher in self.fetchers:
+            return self.fetchers[fetcher](*args)
 
-    def save_session_variable(self, var_value):
-        """
-        This functions saves a variable to the local session storage.
-        :param var_value: The variable value
-        :return: None
-        """
-        self.session_variables.append(var_value)
-        self.serverScript.send_continue_signal()
-
-    def anti_error_encoder(self, result_to_send):
-        """
-        Firebase cant have special characters, such as $ # [ ] / or ., to be in the key value.
-        This function encodes the result the host is suppose to send, to prevent errors in server logic level.
-        NOTE: The result should be decoded also at the remote.
-        :param result_to_send: The result that should be sent to the remote user
-        :return: The same result, decoded.
-        """
-        special_chars_replacements = {'$': "%DoLlAr%",
-                                      '#': "%HaShTaG%",
-                                      '[': "%RiHgT-BrAcKeTSs%",
-                                      ']': "%LeFt-BrAcKeTSs%",
-                                      '/': "%SlAsH%",
-                                      '.': "%PoInT%"}
-        if type(result_to_send) == dict:
-            encoded_result = {}
-            for key in result_to_send:
-                encoded_key = key
-                for char in special_chars_replacements:
-                    encoded_key = encoded_key.replace(char, special_chars_replacements[char])
-                encoded_result[encoded_key] = result_to_send[key]
-            return encoded_result
-        else:
-            return result_to_send
-
-    def get_dynamic_choice(self, choice_id, referring_feature):
-        """
-        This function returns a list of valid choices for any dynamic choice case.
-        Example, if the feature name is: "win", and the argument number is: 2, all of the opened windows titles
-        will be returned.
-        :param choice_id: The name of the choice function (with '-' instead of '_')
-        :param referring_feature: The name of the
-        :return: A tuple of all
-        """
-        choice_id = choice_id.replace("-", "_").strip()
-        choice_function = getattr(DynamicChoiceFunctions, choice_id)
-        if choice_function is not None:
-            return_values = choice_function(referring_feature, self.session_variables)
-            if len(return_values) == 2:
-                return_type, output = return_values
-                return return_type, self.anti_error_encoder(output)
-            elif len(return_values) == 3:
-                return_type, output, assign_value = return_values
-                return return_type, self.anti_error_encoder(output), assign_value
-
-
-class DynamicChoiceFunctions:
     @staticmethod
-    def target_window_dialog(referring_feature, session_storage):
+    def get_open_windows():
         """
-        This function gets and returns a dict with all opened windows names and title (in a string) as keys,
+        This function gets and returns a dict with all open window names and titles as keys,
         and the window process IDs as values.
         It is designed for the dynamic choice feature.
         :return:
         """
-        dynamic_choice = []
+        result = []
         try:
-            for title, name, process_name in WindowsApiHandler.get_open_windows():
-                if len(title) > 80:
-                    title = title[:80] + "..."
-                dynamic_choice.append(f"[{name}] {title}")
-            if len(dynamic_choice) > 0:
-                return "choice", dynamic_choice
-            elif len(dynamic_choice) == 1:
-                return "value-message", "An open window was automatically selected: \n" + dynamic_choice[0]
-            else:
-                return "abort-message", "Info: The host has no open windows."
+            for title, name, process_name in WindowsAPIHandler.get_open_windows():
+                result.append(f"[{name}] {title}")
+            return result
         except:
-            return "abort-message", "A certain window is causing FrankThePrank window handler to crash. \n" \
-                                    "These windows are usually steam apps or other full screen programs. \n" \
-                                    "Please find the the responsible window and close it manually. " \
-                                    "This is a known bug of Ftp, and we are working hard to get if fixed."
+            return "Error: Couldn't load open windows. Please close Steam apps or other full screen programs."
 
     @staticmethod
-    def music_file_dialog(referring_feature, session_storage):
+    def load_music_library():
         """
         This function gets and returns a list of all audio files in Music directory,
         so it can be played by the remote.
@@ -135,32 +59,17 @@ class DynamicChoiceFunctions:
                 if file.endswith(extension):
                     music_files.append(file)
                     break
-        if len(music_files) > 0:
-            return "choice", music_files
-        else:
-            return "abort-message", "There are no music files in your FTP Music folder."
+        return music_files
 
     @staticmethod
-    def launch_program_dialog(referring_feature, session_storage):
+    def search_programs(program_name):
         """
         This function searches for programs that match the given program name.
-        :param referring_feature: The referring feature (the one that is calling the function)
-        :param session_storage: The session storage (All the session variables)
+        :param program_name: Full or partial program name to search.
         :return: A dict with all the program names and paths.
         """
-        search_name = ""
-        if referring_feature in ("launch",):
-            search_name = session_storage[0]
         program_finder = ProgramFinder()
-        relevant_programs = program_finder.search_program(search_name)
-        if len(relevant_programs) == 0:
-            return "abort-message", f"Frank The Prank could't find program {search_name}"
-        elif len(relevant_programs) == 1:
-            program_name = list(relevant_programs.keys())[0]
-            program_path = list(relevant_programs.values())[0]
-            return "value-message", f"Automatically selected {program_name}, launching...", program_path
-        else:
-            return "choice", relevant_programs
+        return program_finder.search_program(program_name)
 
 
 class ProgramFinder:
@@ -221,7 +130,7 @@ class ProgramFinder:
         return relevant_programs
 
 
-class WindowsApiHandler:
+class WindowsAPIHandler:
     @staticmethod
     def get_open_windows():
         """
@@ -257,7 +166,7 @@ class AudioPlayer:
         self.playing = False
         mixer.init()
         
-    def play_sound(self, sound_file):
+    def play(self, sound_file):
         """
         This function plays a sound file using pygame mixer.
         :param sound_file: The path to the sound file
@@ -282,7 +191,7 @@ class AudioPlayer:
         else:
             mixer.music.unpause()
 
-    def stop_playing(self):
+    def stop(self):
         """
         This function stops the pygame music mixer from playing music.
         :return: None
@@ -702,7 +611,7 @@ class Features:
         :return: None
         """
         webbrowser.open(url)
-        self.win("chrome", "focus", True)
+        self.window("chrome", "focus", True)
 
     def loop(self, times, delay, action):
         """
@@ -881,7 +790,7 @@ class Features:
         """
         text = "\n".join(text)
         threading.Thread(target=self.cmd, args=("notepad.exe", ), daemon=True).start()
-        self.win("notepad", "focus", True)
+        self.window("notepad", "focus", True)
         self.type(text)
 
     def screen(self, display_option):
@@ -1016,7 +925,7 @@ class Features:
             self.serverScript.update_communication_channel("Warning", "There are no music tracks in Ftp Music folder.")
         else:
             sound_file = PathsHandler.join(PathsHandler.music_dir, music)
-            self.audio_player.play_sound(sound_file)
+            self.audio_player.play(sound_file)
 
     def pause(self):
         """
@@ -1035,9 +944,9 @@ class Features:
         Echo: No
         :return: None
         """
-        self.audio_player.stop_playing()
+        self.audio_player.stop()
 
-    def win(self, window_title, action, search_by_name=False):
+    def window(self, window_title, action, search_by_name=False):
         """
         This feature affects a certain window by its title (or part of it).
         Window modes (actions available):
@@ -1055,7 +964,7 @@ class Features:
         :return: None
         """
         right_title = ""
-        windows = WindowsApiHandler.get_open_windows()
+        windows = WindowsAPIHandler.get_open_windows()
         if search_by_name:
             for title, name, exe in windows:
                 if window_title.lower() in name.lower():
