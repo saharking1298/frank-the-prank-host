@@ -21,7 +21,8 @@ class DynamicFetchers:
     def __init__(self):
         self.fetchers = {
             "media.sounds.all": self.load_music_library,
-            "windows.open.all": self.get_open_windows
+            "windows.open.all": self.get_open_windows,
+            "programs.installed.all": self.get_installed_programs
         }
 
     def get(self, fetcher: str, *args):
@@ -62,14 +63,15 @@ class DynamicFetchers:
         return music_files
 
     @staticmethod
-    def search_programs(program_name):
+    def get_installed_programs():
         """
         This function searches for programs that match the given program name.
         :param program_name: Full or partial program name to search.
         :return: A dict with all the program names and paths.
         """
         program_finder = ProgramFinder()
-        return program_finder.search_program(program_name)
+        x = program_finder.search_program("")
+        return x
 
 
 class ProgramFinder:
@@ -112,7 +114,13 @@ class ProgramFinder:
                             if url.startswith(pattern):
                                 installed_programs[file.replace(".url", "")] = file_path
                                 break
-        return installed_programs
+
+        program_names = list(installed_programs.keys())
+        program_names.sort()
+        result = {}
+        for name in program_names:
+            result[name] = installed_programs[name]
+        return result
 
     def search_program(self, program_name):
         """
@@ -987,12 +995,11 @@ class Features:
         else:
             self.nircmd(f'win {action} ititle "{right_title}"')
 
-    def launch(self, search_name, program_path=""):
+    def launch(self, program_path=""):
         """
         This feature allows the user to search for a specific program and launch it.
         Category: Apps & Multimedia
         Echo: No
-        :param search_name: The program name [dynamic: string]
         :param program_path: The wanted program [dynamic: choice(launch-program-dialog)]
         :return: None
         """
